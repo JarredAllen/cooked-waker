@@ -138,11 +138,9 @@
 //! assert_eq!(counter_handle.get(), 4);
 //! ```
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::rc;
-use alloc::sync as arc;
 use core::{
     mem::ManuallyDrop,
     ptr,
@@ -311,121 +309,6 @@ impl<T: WakeRef + ?Sized> WakeRef for &T {
 
 impl<T: WakeRef + ?Sized> Wake for &T {}
 
-unsafe impl<T: ?Sized> ViaRawPointer for Box<T> {
-    type Target = T;
-
-    fn into_raw(self) -> *mut T {
-        Box::into_raw(self)
-    }
-
-    unsafe fn from_raw(ptr: *mut T) -> Self {
-        Box::from_raw(ptr)
-    }
-}
-
-impl<T: WakeRef + ?Sized> WakeRef for Box<T> {
-    #[inline]
-    fn wake_by_ref(&self) {
-        T::wake_by_ref(self.as_ref())
-    }
-}
-
-impl<T: Wake> Wake for Box<T> {
-    #[inline]
-    fn wake(self) {
-        T::wake(*self)
-    }
-}
-
-unsafe impl<T: ?Sized> ViaRawPointer for arc::Arc<T> {
-    type Target = T;
-
-    fn into_raw(self) -> *mut T {
-        arc::Arc::into_raw(self) as *mut T
-    }
-
-    unsafe fn from_raw(ptr: *mut T) -> Self {
-        arc::Arc::from_raw(ptr as *const T)
-    }
-}
-
-impl<T: WakeRef + ?Sized> WakeRef for arc::Arc<T> {
-    #[inline]
-    fn wake_by_ref(&self) {
-        T::wake_by_ref(self.as_ref())
-    }
-}
-
-impl<T: WakeRef + ?Sized> Wake for arc::Arc<T> {}
-
-unsafe impl<T> ViaRawPointer for arc::Weak<T> {
-    type Target = T;
-
-    fn into_raw(self) -> *mut T {
-        arc::Weak::into_raw(self) as *mut T
-    }
-
-    unsafe fn from_raw(ptr: *mut T) -> Self {
-        arc::Weak::from_raw(ptr as *const T)
-    }
-}
-
-impl<T: WakeRef + ?Sized> WakeRef for arc::Weak<T> {
-    #[inline]
-    fn wake_by_ref(&self) {
-        self.upgrade().wake()
-    }
-}
-
-impl<T: WakeRef + ?Sized> Wake for arc::Weak<T> {}
-
-impl<T: WakeRef + ?Sized> WakeRef for rc::Rc<T> {
-    #[inline]
-    fn wake_by_ref(&self) {
-        T::wake_by_ref(self.as_ref())
-    }
-}
-
-unsafe impl<T: ?Sized> ViaRawPointer for rc::Rc<T> {
-    type Target = T;
-
-    fn into_raw(self) -> *mut T {
-        rc::Rc::into_raw(self) as *mut T
-    }
-
-    unsafe fn from_raw(ptr: *mut T) -> Self {
-        rc::Rc::from_raw(ptr as *const T)
-    }
-}
-
-impl<T: WakeRef + ?Sized> Wake for rc::Rc<T> {
-    #[inline]
-    fn wake(self) {
-        T::wake_by_ref(self.as_ref())
-    }
-}
-
-unsafe impl<T> ViaRawPointer for rc::Weak<T> {
-    type Target = T;
-
-    fn into_raw(self) -> *mut T {
-        rc::Weak::into_raw(self) as *mut T
-    }
-
-    unsafe fn from_raw(ptr: *mut T) -> Self {
-        rc::Weak::from_raw(ptr as *const T)
-    }
-}
-
-impl<T: WakeRef + ?Sized> WakeRef for rc::Weak<T> {
-    #[inline]
-    fn wake_by_ref(&self) {
-        self.upgrade().wake()
-    }
-}
-
-impl<T: WakeRef + ?Sized> Wake for rc::Weak<T> {}
-
 unsafe impl<T: ViaRawPointer> ViaRawPointer for Option<T>
 where
     T::Target: Sized,
@@ -483,6 +366,128 @@ impl Wake for Waker {
     fn wake(self) {
         Waker::wake(self)
     }
+}
+
+#[cfg(feature = "alloc")]
+mod alloc_impls {
+    use super::*;
+
+    use alloc::{boxed::Box, rc, sync as arc};
+
+    unsafe impl<T: ?Sized> ViaRawPointer for Box<T> {
+        type Target = T;
+
+        fn into_raw(self) -> *mut T {
+            Box::into_raw(self)
+        }
+
+        unsafe fn from_raw(ptr: *mut T) -> Self {
+            Box::from_raw(ptr)
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> WakeRef for Box<T> {
+        #[inline]
+        fn wake_by_ref(&self) {
+            T::wake_by_ref(self.as_ref())
+        }
+    }
+
+    impl<T: Wake> Wake for Box<T> {
+        #[inline]
+        fn wake(self) {
+            T::wake(*self)
+        }
+    }
+
+    unsafe impl<T: ?Sized> ViaRawPointer for arc::Arc<T> {
+        type Target = T;
+
+        fn into_raw(self) -> *mut T {
+            arc::Arc::into_raw(self) as *mut T
+        }
+
+        unsafe fn from_raw(ptr: *mut T) -> Self {
+            arc::Arc::from_raw(ptr as *const T)
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> WakeRef for arc::Arc<T> {
+        #[inline]
+        fn wake_by_ref(&self) {
+            T::wake_by_ref(self.as_ref())
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> Wake for arc::Arc<T> {}
+
+    unsafe impl<T> ViaRawPointer for arc::Weak<T> {
+        type Target = T;
+
+        fn into_raw(self) -> *mut T {
+            arc::Weak::into_raw(self) as *mut T
+        }
+
+        unsafe fn from_raw(ptr: *mut T) -> Self {
+            arc::Weak::from_raw(ptr as *const T)
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> WakeRef for arc::Weak<T> {
+        #[inline]
+        fn wake_by_ref(&self) {
+            self.upgrade().wake()
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> Wake for arc::Weak<T> {}
+
+    impl<T: WakeRef + ?Sized> WakeRef for rc::Rc<T> {
+        #[inline]
+        fn wake_by_ref(&self) {
+            T::wake_by_ref(self.as_ref())
+        }
+    }
+
+    unsafe impl<T: ?Sized> ViaRawPointer for rc::Rc<T> {
+        type Target = T;
+
+        fn into_raw(self) -> *mut T {
+            rc::Rc::into_raw(self) as *mut T
+        }
+
+        unsafe fn from_raw(ptr: *mut T) -> Self {
+            rc::Rc::from_raw(ptr as *const T)
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> Wake for rc::Rc<T> {
+        #[inline]
+        fn wake(self) {
+            T::wake_by_ref(self.as_ref())
+        }
+    }
+
+    unsafe impl<T> ViaRawPointer for rc::Weak<T> {
+        type Target = T;
+
+        fn into_raw(self) -> *mut T {
+            rc::Weak::into_raw(self) as *mut T
+        }
+
+        unsafe fn from_raw(ptr: *mut T) -> Self {
+            rc::Weak::from_raw(ptr as *const T)
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> WakeRef for rc::Weak<T> {
+        #[inline]
+        fn wake_by_ref(&self) {
+            self.upgrade().wake()
+        }
+    }
+
+    impl<T: WakeRef + ?Sized> Wake for rc::Weak<T> {}
 }
 
 #[cfg(test)]
