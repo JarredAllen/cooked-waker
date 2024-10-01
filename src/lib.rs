@@ -309,6 +309,18 @@ impl<T: WakeRef + ?Sized> WakeRef for &T {
 
 impl<T: WakeRef + ?Sized> Wake for &T {}
 
+unsafe impl<'a, T> ViaRawPointer for &'a T {
+    type Target = T;
+
+    fn into_raw(self) -> *mut Self::Target {
+        ptr::from_ref(self).cast_mut()
+    }
+
+    unsafe fn from_raw(ptr: *mut Self::Target) -> Self {
+        &*ptr
+    }
+}
+
 unsafe impl<T: ViaRawPointer> ViaRawPointer for Option<T>
 where
     T::Target: Sized,
